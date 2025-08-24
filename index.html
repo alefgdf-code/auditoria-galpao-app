@@ -1544,21 +1544,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-
-</body>
-</html>
-
-
-<!-- Service Worker (deixe por último) -->
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/auditoria-galpao-app/sw.js')
-      .then(() => console.log('SW registrado'))
-      .catch(console.error);
-  });
-}
-</script>
 </body>
 </html>
 
