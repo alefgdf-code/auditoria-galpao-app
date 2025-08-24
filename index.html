@@ -1324,6 +1324,56 @@ if ('serviceWorker' in navigator) {
       <option>Nova tentativa</option>
     </select>
   </div>
+<!-- TBR + botão de QR -->
+<div class="campo-tbr" style="margin-bottom:10px;">
+  <label for="tbrInput" style="display:block;margin-bottom:6px;">TBR do Pacote</label>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <input id="tbrInput" type="text" placeholder="Digite ou escaneie o TBR" style="flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;">
+    <button id="btnQr" type="button" style="padding:10px 12px;border:1px solid #ccc;border-radius:8px;cursor:pointer;">📷</button>
+  </div>
+</div>
+
+<!-- Área da câmera (tem que existir) -->
+<div id="reader" style="width:320px;max-width:100%;margin:10px 0;display:none;"></div>
+<script>
+(function(){
+  const qrBtn   = document.getElementById('btnQr');
+  const qrInput = document.getElementById('tbrInput');
+  const reader  = document.getElementById('reader');
+
+  if (!qrBtn || !qrInput || !reader) {
+    alert('Faltam elementos: btnQr, tbrInput ou reader.');
+    return;
+  }
+  if (typeof Html5Qrcode === 'undefined') {
+    alert('Biblioteca html5-qrcode não carregou.');
+    return;
+  }
+
+  let html5QrCode = null;
+
+  function startScanner(){
+    reader.style.display = 'block';
+    if (!html5QrCode) html5QrCode = new Html5Qrcode('reader');
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 250 },
+      (text) => { qrInput.value = text; stopScanner(); },
+      () => {}
+    ).catch(e => {
+      console.error('Erro câmera:', e);
+      reader.style.display = 'none';
+      alert('Permita o acesso à câmera.');
+    });
+  }
+
+  function stopScanner(){
+    if (html5QrCode) html5QrCode.stop().then(() => { reader.style.display = 'none'; });
+  }
+
+  qrBtn.addEventListener('click', startScanner);
+})();
+</script>
 
   <!-- Observações -->
   <div style="margin-bottom:10px;">
@@ -1431,9 +1481,73 @@ document.getElementById('btnReset')?.addEventListener('click', () => {
   }
 });
 
-// Inicializa lista ao abrir
-renderRegistros();
+    // Inicializa lista ao abrir
+    renderRegistros();
 </script>
+
+<!-- Biblioteca para leitura de QR Code -->
+<script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+
+<!-- Script do leitor de QR -->
+<script>
+(function(){
+  const qrBtn   = document.getElementById('btnQr');
+  const qrInput = document.getElementById('tbrInput');
+  const reader  = document.getElementById('reader');
+
+  if (!qrBtn || !qrInput || !reader) {
+    console.error('IDs do QR não encontrados (btnQr, tbrInput, reader).');
+    return;
+  }
+  if (typeof Html5Qrcode === 'undefined') {
+    console.error('Biblioteca html5-qrcode não carregou.');
+    return;
+  }
+
+  let html5QrCode = null;
+
+  function startScanner(){
+    reader.style.display = 'block';
+    if (!html5QrCode) html5QrCode = new Html5Qrcode('reader');
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 250 },
+      (text) => {
+        qrInput.value = text;
+        stopScanner();
+      },
+      () => {}
+    ).catch(e => {
+      console.error('Erro câmera:', e);
+      reader.style.display = 'none';
+      alert('Dê permissão de câmera ao navegador.');
+    });
+  }
+
+  function stopScanner(){
+    if (html5QrCode) {
+      html5QrCode.stop().then(() => { reader.style.display = 'none'; });
+    }
+  }
+
+  qrBtn.addEventListener('click', startScanner);
+})();
+</script>
+
+<!-- Service Worker (deixe por último) -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/auditoria-galpao-app/sw.js')
+      .then(() => console.log('SW registrado'))
+      .catch(console.error);
+  });
+}
+</script>
+
+</body>
+</html>
+
 
 <!-- Service Worker (deixe por último) -->
 <script>
