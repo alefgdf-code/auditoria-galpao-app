@@ -1,135 +1,189 @@
-<script>
-// Utilitário: blob -> DataURL
-function blobToDataURL(blob){
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onerror = reject;
-    fr.onload = () => resolve(fr.result);
-    fr.readAsDataURL(blob);
-  });
-}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Auditoria de Galpão - Profissional</title>
 
-// 1) Exportar ZIP (CSV + fotos)
-document.getElementById('btnExportarZip').addEventListener('click', async () => {
-  const rows = getFilteredFC();
-  if (!rows.length) { alert('Nada para exportar.'); return; }
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Auditoria Galpão" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
 
-  const zip = new JSZip();
-  const fotosFolder = zip.folder('fotos');
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-  // Monta CSV com referência ao arquivo da foto (se tiver)
-  const header = ['TBR','Responsável','Motivo','Obs','Data','Hora','ArquivoFoto'];
-  const csvLines = [header.join(';')];
+  <style>
+    * { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    .btn { padding:10px 14px; border-radius:10px; font-weight:600; transition:.15s; }
+    .btn:active { transform:scale(.98) }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-secondary { background:#111827; color:#fff; }
+    .btn-outline { border:1px solid #d1d5db; background:#fff; }
+    .btn-danger { background:#dc2626; color:#fff; }
+    .input { border:1px solid #d1d5db; border-radius:10px; padding:10px 12px; width:100%; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow: 0 2px 8px rgba(0,0,0,.03); }
+    .tab-active { color:#2563eb; border-bottom:3px solid #2563eb; }
+    .hidden { display:none !important }
+    .img-thumb { max-width:160px; max-height:160px; border-radius:12px; object-fit:cover; border:1px solid #e5e7eb; }
+    .modal-bg { background: rgba(0,0,0,.6); }
+    .toast { position:fixed; right:16px; top:16px; z-index:9999; background:#fff; border:1px solid #e5e7eb; padding:12px 14px; border-radius:10px; box-shadow:0 4px 18px rgba(0,0,0,.1); }
+    .toast-success { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+    .toast-error { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <!-- Header -->
+  <header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+          <i class="fas fa-warehouse"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold">Auditoria de Galpão</h1>
+          <p class="text-xs text-gray-500">Sistema de Gestão de Pacotes</p>
+        </div>
+      </div>
+      <div id="currentDateTime" class="text-sm text-gray-500"></div>
+    </div>
+    <nav class="max-w-6xl mx-auto px-4">
+      <ul class="flex gap-6 border-b border-gray-200">
+        <li><button class="py-3 font-semibold tab-link tab-active" data-tab="tabRegistrar">Registrar</button></li>
+        <li><button class="py-3 font-semibold tab-link" data-tab="tabRegistros">Registros</button></li>
+        <li><button class="py-3 font-semibold tab-link" data-tab="tabRelatorio">Relatório FC</button></li>
+      </ul>
+    </nav>
+  </header>
 
-  // Adiciona fotos e preenche linhas
-  for (const p of rows){
-    const d = new Date(p.time);
-    const dataBR = d.toLocaleDateString('pt-BR');
-    const horaBR = d.toLocaleTimeString('pt-BR');
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <!-- Registrar -->
+    <section id="tabRegistrar" class="tab-section">
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="card p-5">
+          <h2 class="text-lg font-semibold mb-4">Registrar Pacote</h2>
 
-    let fotoNome = '';
-    if (p.photoId){
-      try {
-        const blob = await getPhoto(p.photoId);
-        if (blob){
-          // Nome de arquivo legível
-          fotoNome = `fotos/${(p.tbr || 'sem_tbr').replace(/[^A-Za-z0-9_-]/g,'_')}_${p.id}.jpg`;
-          fotosFolder.file(fotoNome.split('/').pop(), blob); // só o nome dentro da pasta
-        }
-      } catch(e){ /* sem foto */ }
-    }
+          <!-- TBR + QR -->
+          <label class="text-sm font-medium">TBR do Pacote</label>
+          <div class="flex gap-2 mt-1 mb-4">
+            <input id="tbrInput" class="input" placeholder="Digite ou escaneie o TBR" />
+            <button id="btnQr" type="button" class="btn btn-secondary"><i class="fa-solid fa-qrcode mr-2"></i>QR</button>
+          </div>
 
-    const linha = [
-      p.tbr,
-      p.responsavel,
-      p.motivo,
-      (p.obs || '').replaceAll(';', ','),
-      dataBR,
-      horaBR,
-      fotoNome
-    ].join(';');
-    csvLines.push(linha);
-  }
+          <!-- Responsável -->
+          <label class="text-sm font-medium">Responsável</label>
+          <input id="responsavelInput" class="input mt-1 mb-4" placeholder="Nome do responsável" />
 
-  zip.file('relatorio.csv', '\ufeff' + csvLines.join('\n')); // BOM p/ Excel PT-BR
+          <!-- Motivo -->
+          <label class="text-sm font-medium">Motivo</label>
+          <select id="motivoSelect" class="input mt-1 mb-4">
+            <option value="">Selecione</option>
+            <option>Damaged</option>
+            <option>Cancelado</option>
+            <option>HELD</option>
+            <option>DS</option>
+            <option>DUPLICADO</option>
+          </select>
 
-  const blobZip = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blobZip);
-  const dt = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
-  a.download = `relatorio-fc_${dt}.zip`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-});
+          <!-- Ação (fixa) -->
+          <label class="text-sm font-medium">Ação</label>
+          <input class="input mt-1 mb-4 bg-gray-100 text-gray-600" value="Encaminhar para FC" disabled />
 
-// 2) Exportar HTML com fotos embutidas (um arquivo só)
-document.getElementById('btnExportarHTML').addEventListener('click', async () => {
-  const rows = getFilteredFC();
-  if (!rows.length) { alert('Nada para exportar.'); return; }
+          <!-- Observações -->
+          <label class="text-sm font-medium">Observações</label>
+          <textarea id="obsInput" rows="3" class="input mt-1 mb-4" placeholder="Detalhes adicionais"></textarea>
 
-  // Monta linhas com <img src="data:image/jpeg;base64,...">
-  const trs = [];
-  for (const p of rows){
-    const d = new Date(p.time);
-    const dataBR = d.toLocaleDateString('pt-BR');
-    const horaBR = d.toLocaleTimeString('pt-BR');
-    let imgTag = '';
+          <!-- Foto -->
+          <div class="mb-4">
+            <label class="text-sm font-medium">Foto do Pacote</label>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <button id="btnAbrirCamera" type="button" class="btn btn-primary"><i class="fa-solid fa-camera mr-2"></i>Abrir Câmera</button>
+              <label class="btn btn-outline cursor-pointer">
+                <i class="fa-solid fa-upload mr-2"></i>Selecionar
+                <input id="fileInput" type="file" accept="image/*" capture="environment" class="hidden" />
+              </label>
+              <button id="btnRemoverFoto" type="button" class="btn btn-outline text-red-600 hidden"><i class="fa-solid fa-trash mr-2"></i>Remover</button>
+            </div>
+            <div class="mt-3">
+              <img id="fotoPreview" class="img-thumb hidden" alt="Preview" />
+            </div>
+          </div>
 
-    if (p.photoId){
-      try {
-        const blob = await getPhoto(p.photoId);
-        if (blob){
-          const dataURL = await blobToDataURL(blob); // incorpora imagem no HTML
-          imgTag = `<img src="${dataURL}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #eee" alt="Foto">`;
-        }
-      } catch(e){ /* sem foto */ }
-    }
+          <div class="flex gap-3">
+            <button id="btnSalvar" class="btn btn-primary flex-1"><i class="fa-solid fa-floppy-disk mr-2"></i>Salvar</button>
+            <button id="btnLimpar" class="btn btn-outline flex-1">Limpar</button>
+          </div>
+        </div>
 
-    trs.push(`
-      <tr>
-        <td>${p.tbr}</td>
-        <td>${p.responsavel}</td>
-        <td>${p.motivo}</td>
-        <td>${(p.obs || '').replace(/</g,'&lt;')}</td>
-        <td>${dataBR}</td>
-        <td>${horaBR}</td>
-        <td>${imgTag}</td>
-      </tr>
-    `);
-  }
+        <!-- Stats -->
+        <div class="card p-5">
+          <h2 class="text-lg font-semibold mb-4">Estatísticas</h2>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between"><span>Total</span><strong id="statTotal">0</strong></div>
+            <div class="flex justify-between"><span>Hoje</span><strong id="statToday" class="text-blue-600">0</strong></div>
+            <div class="flex justify-between"><span>Semana</span><strong id="statWeek" class="text-green-600">0</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  const html = `<!DOCTYPE html>
-  <html lang="pt-BR"><head>
-    <meta charset="utf-8">
-    <title>Relatório FC</title>
-    <style>
-      body { font-family: Arial, sans-serif; padding:16px; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
-      th { background:#f7f7f7; text-align:left; }
-      h1 { margin:0 0 12px 0; font-size:18px; }
-      .muted { color:#666; font-size:12px; margin-bottom:12px; }
-    </style>
-  </head><body>
-    <h1>Relatório — Devolução FC</h1>
-    <div class="muted">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
-    <table>
-      <thead>
-        <tr>
-          <th>TBR</th><th>Responsável</th><th>Motivo</th><th>Obs</th>
-          <th>Data</th><th>Hora</th><th>Foto</th>
-        </tr>
-      </thead>
-      <tbody>${trs.join('')}</tbody>
-    </table>
-  </body></html>`;
+    <!-- Registros -->
+    <section id="tabRegistros" class="tab-section hidden">
+      <div class="card p-5">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold">Registros</h2>
+            <p class="text-sm text-gray-500">Gerencie seus pacotes</p>
+          </div>
+          <div class="flex gap-2">
+            <input id="searchInput" class="input" placeholder="Buscar por TBR ou responsável" />
+            <button id="btnApagarTudo" class="btn btn-danger"><i class="fa-solid fa-trash mr-2"></i>Apagar Tudo</button>
+          </div>
+        </div>
+        <div id="listaRegistros" class="mt-4 space-y-3"></div>
+      </div>
+    </section>
 
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  const dt = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
-  a.download = `relatorio-fc_${dt}.html`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-});
-</script>
+    <!-- Relatório -->
+    <section id="tabRelatorio" class="tab-section hidden">
+      <div class="card p-5">
+        <h2 class="text-lg font-semibold mb-3">Relatório FC</h2>
+        <div class="flex flex-wrap gap-3 items-end mb-3">
+          <div>
+            <label class="text-sm">Data Inicial</label>
+            <input id="dataInicio" type="date" class="input" />
+          </div>
+          <div>
+            <label class="text-sm">Data Final</label>
+            <input id="dataFim" type="date" class="input" />
+          </div>
+          <button id="btnFiltrarRel" class="btn btn-secondary"><i class="fa-solid fa-filter mr-2"></i>Aplicar Filtro</button>
+          <button id="btnExportCSV" class="btn btn-primary"><i class="fa-solid fa-file-csv mr-2"></i>Exportar CSV</button>
+        </div>
+        <div id="relatorioFC" class="space-y-3"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal QR -->
+  <div id="modalQR" class="fixed inset-0 hidden items-center justify-center modal-bg">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-4 mx-4 relative">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-lg">Escanear QR do TBR</h3>
+        <button id="btnCloseQR" class="text-gray-500 hover:text-gray-800"><i class="fa-solid fa-xmark text-xl"></i></button>
+      </div>
+      <div id="qrReader" class="w-full"></div>
+      <p class="text-xs text-gray-500 mt-2">Centralize o QR no quadro. Garanta boa iluminação.</p>
+    </div>
+  </div>
+
+  <!-- Modal Câmera -->
+  <div id="modalCamera" class="fixed inset-0 hidden items-center justify-center modal-bg">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-4 mx-4 relative">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-lg">Capturar Foto do Pacote</h3>
+        <button id="btnCloseCamera" class="
