@@ -1,496 +1,135 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Auditoria de Galpão - Gestão de Pacotes</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#764ba2">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Auditoria Galpão">
-  <link rel="apple-touch-icon" href="icon-192.png">
-
-  <!-- UI libs -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
-  <style>
-    * { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Poppins", sans-serif; }
-    .card { background:#fff; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,.06); }
-    .input { border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; width:100%; }
-    .btn { border:none; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer; }
-    .btn-primary { background:#764ba2; color:#fff; }
-    .btn-dark { background:#374151; color:#fff; }
-    .btn-danger { background:#fff; color:#dc2626; border:1px solid #fecaca; }
-    .table th,.table td { padding:8px 10px; border-bottom:1px solid #eee; text-align:left; }
-    .container-narrow { width:100%; max-width: 420px; }
-    @media (min-width: 768px){ .container-narrow { max-width: 720px; } }
-  </style>
-</head>
-<body class="bg-gray-100">
-
-  <header class="bg-white shadow">
-    <div class="mx-auto container-narrow px-4 py-4 flex items-center justify-between">
-      <h1 class="text-lg md:text-2xl font-bold text-purple-600">
-        <i class="fas fa-warehouse mr-2"></i>Auditoria de Galpão
-      </h1>
-      <span id="currentDate" class="text-xs md:text-sm text-gray-500"></span>
-    </div>
-  </header>
-
-  <main class="mx-auto container-narrow px-4 py-6 space-y-6">
-    <!-- Formulário -->
-    <section class="card p-4 md:p-5">
-      <h2 class="text-lg font-bold mb-4">Registrar Pacote</h2>
-
-      <!-- TBR + QR -->
-      <div class="mb-4">
-        <label for="tbrInput" class="block font-semibold mb-1">TBR</label>
-        <div class="flex gap-2">
-          <input id="tbrInput" class="input flex-1" placeholder="Digite ou escaneie o TBR"
-                 inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false">
-          <button id="btnQr" type="button" class="btn btn-dark" aria-label="Abrir leitor de QR">
-            <i class="fas fa-qrcode"></i>
-          </button>
-        </div>
-      </div>
-      <div id="reader" style="width:320px;max-width:100%;margin:10px 0;display:none;"></div>
-
-      <!-- Responsável -->
-      <div class="mb-4">
-        <label for="responsavelInput" class="block font-semibold mb-1">Responsável</label>
-        <input id="responsavelInput" class="input" placeholder="Quem registrou">
-      </div>
-
-      <!-- Motivo -->
-      <div class="mb-4">
-        <label for="motivoSelect" class="block font-semibold mb-1">Motivo</label>
-        <select id="motivoSelect" class="input">
-          <option value="">Selecione</option>
-          <option>Demaged</option>
-          <option>Cancelado</option>
-          <option>HELD</option>
-          <option>DS</option>
-          <option>DUPLICADO</option>
-        </select>
-      </div>
-
-      <!-- Ação: apenas Devolução FC -->
-      <div class="mb-4">
-        <label for="acaoSelect" class="block font-semibold mb-1">Ação</label>
-        <select id="acaoSelect" class="input">
-          <option value="">Selecione</option>
-          <option>Devolução FC</option>
-        </select>
-      </div>
-
-      <!-- Foto -->
-      <div class="mb-4">
-        <label class="block font-semibold mb-1">Foto</label>
-        <img id="photoPreview" class="hidden w-40 h-40 object-cover border rounded mb-2" alt="Foto do pacote">
-        <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
-        <div class="flex gap-2">
-          <button type="button" id="btnTirarFoto" class="btn btn-dark"><i class="fas fa-camera mr-2"></i>Tirar/Selecionar</button>
-          <button type="button" id="btnLimparFoto" class="btn btn-danger"><i class="fas fa-trash mr-1"></i>Limpar</button>
-        </div>
-      </div>
-
-      <!-- Observações -->
-      <div class="mb-4">
-        <label for="obsInput" class="block font-semibold mb-1">Observações</label>
-        <textarea id="obsInput" rows="3" class="input" placeholder="Opcional"></textarea>
-      </div>
-
-      <div class="flex gap-2">
-        <button id="btnSalvar" type="button" class="btn btn-primary flex-1">
-          <i class="fas fa-save mr-2"></i>Salvar
-        </button>
-        <button id="btnReset" type="button" class="btn btn-danger flex-1">
-          <i class="fas fa-eraser mr-2"></i>Resetar Tudo
-        </button>
-      </div>
-    </section>
-
-    <!-- Relatório FC -->
-    <section class="card p-4 md:p-5">
-      <h2 class="text-lg font-bold mb-3">Relatório — Devolução FC</h2>
-      <div class="flex flex-wrap items-end gap-2 mb-3">
-        <div>
-          <label class="block text-xs font-semibold mb-1">Data inicial</label>
-          <input type="date" id="repStart" class="input" style="padding:6px 10px;">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold mb-1">Data final</label>
-          <input type="date" id="repEnd" class="input" style="padding:6px 10px;">
-        </div>
-        <button id="btnFiltrar" type="button" class="btn btn-dark"><i class="fas fa-filter mr-2"></i>Filtrar</button>
-        <button id="btnExportar" type="button" class="btn btn-primary"><i class="fas fa-file-export mr-2"></i>Exportar CSV</button>
-        <button id="btnExcluirFiltrados" type="button" class="btn btn-danger"><i class="fas fa-trash mr-2"></i>Excluir Filtrados</button>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="table w-full">
-          <thead class="bg-gray-50">
-            <tr>
-              <th>TBR</th>
-              <th>Responsável</th>
-              <th>Motivo</th>
-              <th>Obs</th>
-              <th>Data</th>
-              <th>Hora</th>
-              <th>Foto</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="repBody">
-            <tr><td colspan="8" class="text-center text-gray-400 py-4">Use o filtro para ver os registros.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <!-- Lib do leitor QR -->
-  <script defer src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-
-  <!-- App -->
-  <script>
-  'use strict';
-
-  // ========= Helpers DOM/tempo =========
-  const $ = (id) => document.getElementById(id);
-  $('currentDate').textContent = new Date().toLocaleString('pt-BR');
-
-  // ========= LocalStorage (metadados) =========
-  let packages = [];
-  try { packages = JSON.parse(localStorage.getItem('packages') || '[]'); }
-  catch(e){ localStorage.removeItem('packages'); packages = []; }
-  const persist = () => localStorage.setItem('packages', JSON.stringify(packages));
-
-  // ========= IndexedDB (fotos) =========
-  const DB_NAME = 'auditoria-photos';
-  const DB_VER  = 1;
-  const STORE   = 'photos';
-  let dbPromise = null;
-
-  function openDB(){
-    if (dbPromise) return dbPromise;
-    dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VER);
-      req.onupgradeneeded = (e) => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE, { keyPath: 'id' });
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror   = () => reject(req.error);
-    });
-    return dbPromise;
-  }
-
-  async function putPhoto(id, blob){
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put({ id, blob });
-      tx.oncomplete = () => resolve(true);
-      tx.onerror    = () => reject(tx.error);
-    });
-  }
-
-  async function getPhoto(id){
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readonly');
-      const req = tx.objectStore(STORE).get(id);
-      req.onsuccess = () => resolve(req.result?.blob || null);
-      req.onerror   = () => reject(req.error);
-    });
-  }
-
-  async function deletePhoto(id){
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).delete(id);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror    = () => reject(tx.error);
-    });
-  }
-
-  // ========= Compressão básica (reduz tamanho antes de salvar) =========
-  const MAX_DIM = 1280;   // maior lado
-  const JPEG_Q  = 0.8;    // qualidade
-
-  function fileToCompressedBlob(file, maxDim = MAX_DIM, quality = JPEG_Q){
-    return new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onerror = reject;
-      fr.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          let { width, height } = img;
-          if (width > height && width > maxDim){ height = Math.round(height * (maxDim / width)); width = maxDim; }
-          else if (height >= width && height > maxDim){ width = Math.round(width * (maxDim / height)); height = maxDim; }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => {
-            if (!blob) return reject(new Error('Falha ao comprimir'));
-            resolve(blob);
-          }, 'image/jpeg', quality);
-        };
-        img.onerror = reject;
-        img.src = fr.result;
-      };
-      fr.readAsDataURL(file);
-    });
-  }
-
-  // ========= Foto (UI) =========
-  let currentPhotoBlob = null; // blob temporário até salvar
-
-  $('btnTirarFoto').addEventListener('click', () => $('photoInput').click());
-
-  $('photoInput').addEventListener('change', async () => {
-    const file = $('photoInput').files?.[0];
-    if (!file) return;
-    try {
-      currentPhotoBlob = await fileToCompressedBlob(file);
-      const url = URL.createObjectURL(currentPhotoBlob);
-      $('photoPreview').src = url;
-      $('photoPreview').classList.remove('hidden');
-    } catch (e){
-      console.error(e);
-      alert('Não foi possível processar a foto.');
-      currentPhotoBlob = null;
-    }
+<script>
+// Utilitário: blob -> DataURL
+function blobToDataURL(blob){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = reject;
+    fr.onload = () => resolve(fr.result);
+    fr.readAsDataURL(blob);
   });
+}
 
-  $('btnLimparFoto').addEventListener('click', () => {
-    currentPhotoBlob = null;
-    $('photoPreview').classList.add('hidden');
-    $('photoPreview').src = '';
-    $('photoInput').value = '';
-  });
+// 1) Exportar ZIP (CSV + fotos)
+document.getElementById('btnExportarZip').addEventListener('click', async () => {
+  const rows = getFilteredFC();
+  if (!rows.length) { alert('Nada para exportar.'); return; }
 
-  // ========= QR Code =========
-  let qrScanner = null;
-  $('btnQr').addEventListener('click', () => {
-    if (typeof Html5Qrcode === 'undefined') { alert('Leitor QR não carregou.'); return; }
-    if (!qrScanner) qrScanner = new Html5Qrcode('reader');
-    $('reader').style.display = 'block';
-    qrScanner.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: 250 },
-      (decodedText) => {
-        $('tbrInput').value = decodedText;
-        qrScanner.stop().then(() => $('reader').style.display = 'none');
-      }
-    ).catch(e => {
-      alert('Permita a câmera. Erro: ' + e);
-      $('reader').style.display = 'none';
-    });
-  });
+  const zip = new JSZip();
+  const fotosFolder = zip.folder('fotos');
 
-  // ========= Salvar =========
-  function uuid(){ return (crypto?.randomUUID && crypto.randomUUID()) || ('id_' + Date.now() + '_' + Math.random().toString(16).slice(2)); }
+  // Monta CSV com referência ao arquivo da foto (se tiver)
+  const header = ['TBR','Responsável','Motivo','Obs','Data','Hora','ArquivoFoto'];
+  const csvLines = [header.join(';')];
 
-  $('btnSalvar').addEventListener('click', async () => {
-    const tbr  = ($('tbrInput').value || '').trim();
-    const resp = ($('responsavelInput').value || '').trim();
-    const mot  = ($('motivoSelect').value || '').trim();
-    const acao = ($('acaoSelect').value || '').trim();
-    const obs  = ($('obsInput').value || '').trim();
-
-    if (!tbr || !resp || !mot || !acao) { alert('Preencha TBR, Responsável, Motivo e Ação.'); return; }
-    if (acao !== 'Devolução FC') { alert('Ação precisa ser "Devolução FC".'); return; }
-
-    let photoId = null;
-    try {
-      if (currentPhotoBlob) {
-        photoId = uuid();
-        await putPhoto(photoId, currentPhotoBlob);
-      }
-    } catch (e){
-      console.warn('Falha ao salvar foto no IndexedDB, salvando sem foto...', e);
-      photoId = null;
-    }
-
-    const item = {
-      id: Date.now(),
-      tbr,
-      responsavel: resp,
-      motivo: mot,
-      acao,
-      obs,
-      photoId,              // referência no IndexedDB
-      time: new Date().toISOString()
-    };
-
-    packages.unshift(item);
-    persist();
-
-    // limpa UI
-    $('tbrInput').value = '';
-    $('responsavelInput').value = '';
-    $('motivoSelect').value = '';
-    $('acaoSelect').value = '';
-    $('obsInput').value = '';
-    currentPhotoBlob = null;
-    $('photoPreview').classList.add('hidden'); $('photoPreview').src = '';
-    $('photoInput').value = '';
-
-    alert('Registro salvo!');
-    renderReport();
-  });
-
-  // ========= Reset =========
-  $('btnReset').addEventListener('click', async () => {
-    if (!confirm('Apagar TODOS os registros?')) return;
-
-    // apaga fotos vinculadas
-    const toDelete = packages.map(p => p.photoId).filter(Boolean);
-    for (const pid of toDelete) { try { await deletePhoto(pid); } catch(e){} }
-
-    packages = [];
-    persist();
-    renderReport();
-    alert('Tudo limpo.');
-  });
-
-  // ========= Relatório =========
-  const repBody = $('repBody');
-
-  function setDefaultReportDates() {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    $('repStart').value = start.toISOString().split('T')[0];
-    $('repEnd').value   = now.toISOString().split('T')[0];
-  }
-
-  function getFilteredFC() {
-    const start = new Date($('repStart').value || '1970-01-01');
-    const end   = new Date($('repEnd').value   || '2999-12-31'); end.setHours(23,59,59,999);
-    return packages
-      .filter(p => p.acao === 'Devolução FC')
-      .filter(p => {
-        const d = new Date(p.time);
-        return d >= start && d <= end;
-      });
-  }
-
-  async function rowHtml(p){
+  // Adiciona fotos e preenche linhas
+  for (const p of rows){
     const d = new Date(p.time);
     const dataBR = d.toLocaleDateString('pt-BR');
     const horaBR = d.toLocaleTimeString('pt-BR');
 
-    let photoCell = '';
+    let fotoNome = '';
     if (p.photoId){
       try {
         const blob = await getPhoto(p.photoId);
         if (blob){
-          const url = URL.createObjectURL(blob);
-          photoCell = `<img src="${url}" class="w-12 h-12 object-cover rounded" data-photo-url="${url}">`;
+          // Nome de arquivo legível
+          fotoNome = `fotos/${(p.tbr || 'sem_tbr').replace(/[^A-Za-z0-9_-]/g,'_')}_${p.id}.jpg`;
+          fotosFolder.file(fotoNome.split('/').pop(), blob); // só o nome dentro da pasta
         }
-      } catch(e){ /* ignora */ }
+      } catch(e){ /* sem foto */ }
     }
 
-    return `
-      <tr data-id="${p.id}" data-photoid="${p.photoId || ''}">
+    const linha = [
+      p.tbr,
+      p.responsavel,
+      p.motivo,
+      (p.obs || '').replaceAll(';', ','),
+      dataBR,
+      horaBR,
+      fotoNome
+    ].join(';');
+    csvLines.push(linha);
+  }
+
+  zip.file('relatorio.csv', '\ufeff' + csvLines.join('\n')); // BOM p/ Excel PT-BR
+
+  const blobZip = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blobZip);
+  const dt = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  a.download = `relatorio-fc_${dt}.zip`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+});
+
+// 2) Exportar HTML com fotos embutidas (um arquivo só)
+document.getElementById('btnExportarHTML').addEventListener('click', async () => {
+  const rows = getFilteredFC();
+  if (!rows.length) { alert('Nada para exportar.'); return; }
+
+  // Monta linhas com <img src="data:image/jpeg;base64,...">
+  const trs = [];
+  for (const p of rows){
+    const d = new Date(p.time);
+    const dataBR = d.toLocaleDateString('pt-BR');
+    const horaBR = d.toLocaleTimeString('pt-BR');
+    let imgTag = '';
+
+    if (p.photoId){
+      try {
+        const blob = await getPhoto(p.photoId);
+        if (blob){
+          const dataURL = await blobToDataURL(blob); // incorpora imagem no HTML
+          imgTag = `<img src="${dataURL}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #eee" alt="Foto">`;
+        }
+      } catch(e){ /* sem foto */ }
+    }
+
+    trs.push(`
+      <tr>
         <td>${p.tbr}</td>
         <td>${p.responsavel}</td>
         <td>${p.motivo}</td>
-        <td>${p.obs || ''}</td>
+        <td>${(p.obs || '').replace(/</g,'&lt;')}</td>
         <td>${dataBR}</td>
         <td>${horaBR}</td>
-        <td>${photoCell}</td>
-        <td><button type="button" class="btn btn-danger" onclick="delOne(${p.id})">Excluir</button></td>
+        <td>${imgTag}</td>
       </tr>
-    `;
+    `);
   }
 
-  async function renderReport(){
-    const rows = getFilteredFC();
-    if (!rows.length){
-      repBody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-400 py-4">Nenhum registro</td></tr>';
-      return;
-    }
-    // monta linhas assincronamente (por causa das fotos)
-    const htmls = [];
-    for (const p of rows){
-      htmls.push(await rowHtml(p));
-    }
-    // limpa possíveis objectURLs antigos
-    repBody.querySelectorAll('img[data-photo-url]').forEach(img => URL.revokeObjectURL(img.getAttribute('data-photo-url')));
-    repBody.innerHTML = htmls.join('');
-  }
+  const html = `<!DOCTYPE html>
+  <html lang="pt-BR"><head>
+    <meta charset="utf-8">
+    <title>Relatório FC</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding:16px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border:1px solid #ddd; padding:8px; font-size:14px; }
+      th { background:#f7f7f7; text-align:left; }
+      h1 { margin:0 0 12px 0; font-size:18px; }
+      .muted { color:#666; font-size:12px; margin-bottom:12px; }
+    </style>
+  </head><body>
+    <h1>Relatório — Devolução FC</h1>
+    <div class="muted">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+    <table>
+      <thead>
+        <tr>
+          <th>TBR</th><th>Responsável</th><th>Motivo</th><th>Obs</th>
+          <th>Data</th><th>Hora</th><th>Foto</th>
+        </tr>
+      </thead>
+      <tbody>${trs.join('')}</tbody>
+    </table>
+  </body></html>`;
 
-  window.delOne = async function(id){
-    const item = packages.find(p => p.id === id);
-    packages = packages.filter(p => p.id !== id);
-    persist();
-    if (item?.photoId){
-      try { await deletePhoto(item.photoId); } catch(e){}
-    }
-    renderReport();
-  };
-
-  $('btnFiltrar').addEventListener('click', renderReport);
-
-  $('btnExportar').addEventListener('click', () => {
-    const rows = getFilteredFC();
-    if (!rows.length) { alert('Nada para exportar.'); return; }
-    const header = ['TBR','Responsável','Motivo','Obs','Data','Hora'];
-    const data   = rows.map(p => {
-      const d = new Date(p.time);
-      return [
-        p.tbr, p.responsavel, p.motivo, (p.obs || '').replaceAll(';', ','),
-        d.toLocaleDateString('pt-BR'),
-        d.toLocaleTimeString('pt-BR')
-      ];
-    });
-    const csv = [header, ...data].map(r => r.join(';')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type:'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    const dt = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
-    a.download = `relatorio-fc_${dt}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(a.href);
-  });
-
-  $('btnExcluirFiltrados').addEventListener('click', async () => {
-    if (!confirm('Excluir todos os registros filtrados?')) return;
-    const toRemove = getFilteredFC();
-    // deleta fotos dos filtrados
-    for (const p of toRemove){
-      if (p.photoId){ try { await deletePhoto(p.photoId); } catch(e){} }
-    }
-    const ids = new Set(toRemove.map(p => p.id));
-    packages = packages.filter(p => !ids.has(p.id));
-    persist();
-    renderReport();
-  });
-
-  // Inicializa relatório
-  setDefaultReportDates();
-  renderReport();
-
-  // SW (PWA)
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/auditoria-galpao-app/sw.js')
-        .then(() => console.log('SW registrado'))
-        .catch(console.error);
-    });
-  }
-  </script>
-</body>
-</html>
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const dt = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  a.download = `relatorio-fc_${dt}.html`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+});
+</script>
