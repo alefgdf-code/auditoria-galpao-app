@@ -1,204 +1,310 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Auditoria de Galpão - Gestão de Pacotes</title>
+
+  <!-- PWA Configuration -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#764ba2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Auditoria Galpão">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
   <style>
-    * { font-family: system-ui, sans-serif; }
-    .card { background:#fff; border-radius:12px; box-shadow:0 4px 10px rgba(0,0,0,.05); }
-    .input { border:1px solid #ddd; border-radius:8px; padding:8px 10px; width:100%; }
-    .btn { border:none; border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; }
-    .btn-primary { background:#764ba2; color:#fff; }
-    .btn-dark { background:#374151; color:#fff; }
-    .btn-danger { background:#fff; border:1px solid #fecaca; color:#dc2626; }
-    .table th,.table td { padding:6px 10px; border-bottom:1px solid #eee; text-align:left; }
+    * { font-family: 'Poppins', sans-serif; }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none; padding: 12px 30px; border-radius: 15px;
+      font-weight: 600; text-transform: uppercase; cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover { transform: translateY(-2px); }
+    .btn-danger {
+      background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+      color: #dc2626; border: none; padding: 12px 30px;
+      border-radius: 15px; font-weight: 600; cursor: pointer;
+    }
+    .btn-export {
+      background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+      color: white; border: none; padding: 12px 30px;
+      border-radius: 15px; font-weight: 600; cursor: pointer;
+    }
   </style>
 </head>
-<body class="bg-gray-100">
+<body class="min-h-screen bg-gray-100">
 
-<header class="bg-white shadow p-4 flex justify-between">
-  <h1 class="font-bold text-purple-600"><i class="fas fa-warehouse mr-2"></i>Auditoria de Galpão</h1>
-  <span id="currentDate" class="text-sm text-gray-500"></span>
-</header>
-
-<main class="max-w-5xl mx-auto p-4 space-y-6">
+  <!-- Header -->
+  <header class="p-4 bg-white shadow flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-purple-600">
+      <i class="fas fa-warehouse mr-2"></i>Auditoria de Galpão
+    </h1>
+    <span id="currentDate" class="text-sm text-gray-500"></span>
+  </header>
 
   <!-- Formulário -->
-  <section class="card p-4">
-    <h2 class="text-lg font-bold mb-3">Registrar Pacote</h2>
+  <main class="container mx-auto p-6">
+    <section class="bg-white p-6 rounded-xl shadow-lg">
+      <h2 class="text-xl font-bold mb-4">Registrar Pacote</h2>
 
-    <!-- TBR + QR -->
-    <div class="mb-3">
-      <label class="block font-semibold mb-1">TBR</label>
-      <div class="flex gap-2">
-        <input id="tbrInput" class="input flex-1" placeholder="Digite ou escaneie o TBR">
-        <button id="btnQr" class="btn btn-dark"><i class="fas fa-qrcode"></i></button>
+      <!-- Campo TBR + QR -->
+      <div class="mb-4">
+        <label for="tbrInput" class="block mb-2">TBR do Pacote</label>
+        <div class="flex gap-2">
+          <input id="tbrInput" type="text" placeholder="Digite ou escaneie o TBR"
+                 class="flex-1 border rounded px-3 py-2">
+          <button id="btnQr" type="button" class="px-4 py-2 bg-gray-700 text-white rounded">📷</button>
+        </div>
       </div>
-    </div>
-    <div id="reader" style="width:320px;max-width:100%;margin:10px 0;display:none;"></div>
 
-    <!-- Responsável -->
-    <div class="mb-3">
-      <label class="block font-semibold mb-1">Responsável</label>
-      <input id="responsavelInput" class="input">
-    </div>
+      <!-- Área do leitor QR -->
+      <div id="reader" style="width:320px;max-width:100%;margin:10px 0;display:none;"></div>
 
-    <!-- Motivo -->
-    <div class="mb-3">
-      <label class="block font-semibold mb-1">Motivo</label>
-      <select id="motivoSelect" class="input">
-        <option value="">Selecione</option>
-        <option>Demaged</option>
-        <option>Cancelado</option>
-        <option>HELD</option>
-        <option>DS</option>
-        <option>DUPLICADO</option>
-      </select>
-    </div>
-
-    <!-- Ação -->
-    <div class="mb-3">
-      <label class="block font-semibold mb-1">Ação</label>
-      <select id="acaoSelect" class="input">
-        <option value="">Selecione</option>
-        <option>Encaminhar para o FC</option>
-      </select>
-    </div>
-
-    <!-- Foto -->
-    <div class="mb-3">
-      <label class="block font-semibold mb-1">Foto</label>
-      <img id="photoPreview" class="hidden w-40 border rounded mb-2">
-      <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden">
-      <div class="flex gap-2">
-        <button type="button" id="btnTirarFoto" class="btn btn-dark">Tirar/Selecionar</button>
-        <button type="button" id="btnLimparFoto" class="btn btn-danger">Limpar</button>
+      <!-- Campo Responsável -->
+      <div class="mb-4">
+        <label for="responsavelInput" class="block mb-2">Responsável</label>
+        <input id="responsavelInput" type="text" placeholder="Nome do responsável"
+               class="w-full border rounded px-3 py-2">
       </div>
-    </div>
 
-    <!-- Observações -->
-    <div class="mb-3">
-      <label class="block font-semibold mb-1">Observações</label>
-      <textarea id="obsInput" class="input"></textarea>
-    </div>
+      <!-- Campo Foto -->
+      <div class="mb-4">
+        <label class="block mb-2">Foto do Pacote</label>
+        <div class="flex gap-2">
+          <button id="btnTirarFoto" type="button" class="px-4 py-2 bg-blue-600 text-white rounded">Tirar Foto</button>
+          <input id="fotoInput" type="file" accept="image/*" capture="environment"
+                 class="flex-1 border rounded px-3 py-2">
+        </div>
+        <img id="fotoPreview" class="mt-2 max-w-xs rounded" style="display:none;">
+      </div>
 
-    <div class="flex gap-2">
-      <button id="btnSalvar" class="btn btn-primary flex-1">Salvar</button>
-      <button id="btnReset" class="btn btn-danger flex-1">Resetar Tudo</button>
-    </div>
-  </section>
+      <!-- Motivo -->
+      <div class="mb-4">
+        <label for="motivoSelect" class="block mb-2">Motivo</label>
+        <select id="motivoSelect" class="w-full border rounded px-3 py-2">
+          <option value="">Selecione</option>
+          <option>Damaged</option>
+          <option>Cancelado</option>
+          <option>HELD</option>
+          <option>DS</option>
+          <option>DUPLICADO</option>
+        </select>
+      </div>
 
-  <!-- Relatório -->
-  <section class="card p-4">
-    <h2 class="text-lg font-bold mb-3">Relatório - FC</h2>
-    <div class="flex gap-2 mb-3 flex-wrap">
-      <input type="date" id="repStart" class="input">
-      <input type="date" id="repEnd" class="input">
-      <button id="btnFiltrar" class="btn btn-dark">Filtrar</button>
-      <button id="btnExportar" class="btn btn-primary">Exportar CSV</button>
-      <button id="btnExcluirFiltrados" class="btn btn-danger">Excluir Filtrados</button>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="table w-full">
-        <thead class="bg-gray-50">
-          <tr><th>TBR</th><th>Responsável</th><th>Motivo</th><th>Obs</th><th>Data/Hora</th><th>Foto</th><th></th></tr>
-        </thead>
-        <tbody id="repBody"><tr><td colspan="7" class="text-center text-gray-400 py-4">Nenhum registro</td></tr></tbody>
-      </table>
-    </div>
-  </section>
-</main>
+      <!-- Ação (somente FC) -->
+      <div class="mb-4">
+        <label for="acaoSelect" class="block mb-2">Ação</label>
+        <select id="acaoSelect" class="w-full border rounded px-3 py-2">
+          <option value="Encaminhar para FC">Encaminhar para FC</option>
+        </select>
+      </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script>
-let packages = JSON.parse(localStorage.getItem('packages')||'[]');
-let currentPhoto = null;
-const $=id=>document.getElementById(id);
-$('currentDate').textContent=new Date().toLocaleString('pt-BR');
+      <!-- Observações -->
+      <div class="mb-4">
+        <label for="obsInput" class="block mb-2">Observações</label>
+        <textarea id="obsInput" class="w-full border rounded px-3 py-2"></textarea>
+      </div>
 
-// foto
-$('btnTirarFoto').onclick=()=>$('photoInput').click();
-$('photoInput').onchange=()=>{
-  if($('photoInput').files[0]){
-    const r=new FileReader();
-    r.onload=e=>{currentPhoto=e.target.result;$('photoPreview').src=currentPhoto;$('photoPreview').classList.remove('hidden');};
-    r.readAsDataURL($('photoInput').files[0]);
-  }
-}
-$('btnLimparFoto').onclick=()=>{currentPhoto=null;$('photoPreview').classList.add('hidden');$('photoInput').value='';};
+      <!-- Botões -->
+      <div class="flex gap-4">
+        <button id="btnSalvar" class="btn-primary text-white flex-1">Salvar</button>
+        <button id="btnReset" class="btn-danger flex-1">Resetar</button>
+      </div>
+    </section>
 
-// QR
-let qrScanner=null;
-$('btnQr').onclick=()=>{
-  if(!qrScanner) qrScanner=new Html5Qrcode("reader");
-  $('reader').style.display='block';
-  qrScanner.start({facingMode:'environment'},{fps:10,qrbox:250},txt=>{
-    $('tbrInput').value=txt;qrScanner.stop().then(()=>$('reader').style.display='none');
-  });
-};
+    <!-- Lista de registros -->
+    <section class="mt-6 bg-white p-6 rounded-xl shadow-lg">
+      <h2 class="text-xl font-bold mb-4">Registros Recentes</h2>
+      <div id="listaRegistros" class="space-y-3"></div>
 
-// salvar
-$('btnSalvar').onclick=()=>{
-  const tbr=$('tbrInput').value.trim();
-  const resp=$('responsavelInput').value.trim();
-  const mot=$('motivoSelect').value;
-  const acao=$('acaoSelect').value;
-  const obs=$('obsInput').value.trim();
-  if(!tbr||!resp||!mot||!acao) return alert('Preencha todos os campos');
-  packages.unshift({id:Date.now(),tbr,responsavel:resp,motivo:mot,acao,obs,photo:currentPhoto,time:new Date().toISOString()});
-  localStorage.setItem('packages',JSON.stringify(packages));
-  alert('Salvo!');
-  $('tbrInput').value='';$('responsavelInput').value='';$('motivoSelect').value='';$('acaoSelect').value='';$('obsInput').value='';
-  currentPhoto=null;$('photoPreview').classList.add('hidden');$('photoInput').value='';
-  renderReport();
-};
+      <!-- Relatório FC com Filtro de Datas -->
+      <div class="mt-6">
+        <h3 class="text-lg font-bold mb-2">Relatório FC</h3>
+        <div class="flex gap-4 mb-4">
+          <div>
+            <label for="dataInicio" class="block mb-1 text-sm">Data Inicial</label>
+            <input id="dataInicio" type="date" class="border rounded px-3 py-2">
+          </div>
+          <div>
+            <label for="dataFim" class="block mb-1 text-sm">Data Final</label>
+            <input id="dataFim" type="date" class="border rounded px-3 py-2">
+          </div>
+          <button id="btnFiltrar" class="btn-primary text-white px-4 py-2 mt-6">Filtrar</button>
+        </div>
+        <div id="relatorioFC" class="space-y-3"></div>
+        <button id="btnExportFC" class="btn-export mt-4 w-full">Exportar CSV (baseado no filtro)</button>
+      </div>
+    </section>
+  </main>
 
-// reset
-$('btnReset').onclick=()=>{if(confirm('Apagar tudo?')){packages=[];localStorage.removeItem('packages');renderReport();}}
+  <!-- Lib QR -->
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-// relatório
-function renderReport(){
-  const start=new Date($('repStart').value||'1970-01-01');
-  const end=new Date($('repEnd').value||'2999-12-31'); end.setHours(23,59,59,999);
-  const rows=packages.filter(p=>p.acao.includes('FC')).filter(p=>{const d=new Date(p.time);return d>=start&&d<=end;});
-  if(!rows.length){$('repBody').innerHTML='<tr><td colspan="7" class="text-center text-gray-400 py-4">Nenhum registro</td></tr>';return;}
-  $('repBody').innerHTML=rows.map(p=>`
-    <tr>
-      <td>${p.tbr}</td><td>${p.responsavel}</td><td>${p.motivo}</td><td>${p.obs||''}</td>
-      <td>${new Date(p.time).toLocaleString('pt-BR')}</td>
-      <td>${p.photo?'<img src="'+p.photo+'" class="w-12 h-12 object-cover">':''}</td>
-      <td><button onclick="del(${p.id})" class="btn btn-danger">Excluir</button></td>
-    </tr>`).join('');
-}
-window.del=id=>{packages=packages.filter(p=>p.id!==id);localStorage.setItem('packages',JSON.stringify(packages));renderReport();}
+  <script>
+    // ===== Helpers =====
+    let packages = JSON.parse(localStorage.getItem('packages')) || [];
+    function saveData() { localStorage.setItem('packages', JSON.stringify(packages)); render(); renderRelatorio(); }
 
-$('btnFiltrar').onclick=renderReport;
-$('btnExportar').onclick=()=>{
-  const trs=[...$('repBody').querySelectorAll('tr')];
-  if(!trs.length) return;
-  let csv="TBR;Responsável;Motivo;Obs;Data/Hora\n";
-  trs.forEach(tr=>{
-    const tds=tr.querySelectorAll('td');
-    if(tds.length) csv+=[...tds].slice(0,5).map(td=>td.innerText).join(';')+"\n";
-  });
-  const blob=new Blob(['\ufeff'+csv],{type:'text/csv'}),a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download="relatorio-fc.csv";a.click();
-};
-$('btnExcluirFiltrados').onclick=()=>{
-  if(!confirm('Excluir todos filtrados?'))return;
-  const start=new Date($('repStart').value||'1970-01-01');
-  const end=new Date($('repEnd').value||'2999-12-31'); end.setHours(23,59,59,999);
-  packages=packages.filter(p=>!(p.acao.includes('FC')&&new Date(p.time)>=start&&new Date(p.time)<=end));
-  localStorage.setItem('packages',JSON.stringify(packages));renderReport();
-};
+    // ===== Render registros recentes (todos) =====
+    function render() {
+      const el = document.getElementById('listaRegistros');
+      if (packages.length === 0) {
+        el.innerHTML = '<p class="text-gray-500">Nenhum registro salvo.</p>';
+        return;
+      }
+      el.innerHTML = packages.map(p => `
+        <div class="border p-3 rounded flex justify-between items-center">
+          <div>
+            <p><strong>TBR:</strong> ${p.tbr}</p>
+            <p><strong>Responsável:</strong> ${p.responsavel}</p>
+            <p><strong>Motivo:</strong> ${p.motivo}</p>
+            <p><strong>Ação:</strong> ${p.acao}</p>
+            ${p.foto ? `<img src="${p.foto}" class="max-w-[100px] rounded mt-2">` : ''}
+            <small class="text-gray-500">${new Date(p.time).toLocaleString('pt-BR')}</small>
+          </div>
+          <button onclick="deletePackage(${p.id})" class="text-red-600">Excluir</button>
+        </div>
+      `).join('');
+    }
 
-// datas padrão
-const now=new Date();$('repEnd').value=now.toISOString().split('T')[0];
-const startMonth=new Date(now.getFullYear(),now.getMonth(),1);$('repStart').value=startMonth.toISOString().split('T')[0];
-renderReport();
-</script>
-</body>
-</html>
+    // ===== Render relatório FC filtrado =====
+    function renderRelatorio(inicio = null, fim = null) {
+      const el = document.getElementById('relatorioFC');
+      let filtered = packages.filter(p => p.acao === 'Encaminhar para FC');
+
+      if (inicio) filtered = filtered.filter(p => new Date(p.time) >= new Date(inicio));
+      if (fim) filtered = filtered.filter(p => new Date(p.time) <= new Date(fim + 'T23:59:59'));
+
+      if (filtered.length === 0) {
+        el.innerHTML = '<p class="text-gray-500">Nenhum registro FC no período.</p>';
+        return;
+      }
+      el.innerHTML = filtered.map(p => `
+        <div class="border p-3 rounded flex justify-between items-center bg-blue-50">
+          <div>
+            <p><strong>TBR:</strong> ${p.tbr}</p>
+            <p><strong>Responsável:</strong> ${p.responsavel}</p>
+            <p><strong>Motivo:</strong> ${p.motivo}</p>
+            <p><strong>Ação:</strong> ${p.acao}</p>
+            ${p.foto ? `<img src="${p.foto}" class="max-w-[100px] rounded mt-2">` : ''}
+            <small class="text-gray-500">${new Date(p.time).toLocaleString('pt-BR')}</small>
+          </div>
+          <button onclick="deletePackage(${p.id})" class="text-red-600">Excluir</button>
+        </div>
+      `).join('');
+    }
+
+    function deletePackage(id) {
+      packages = packages.filter(p => p.id !== id);
+      saveData();
+    }
+
+    // ===== QR Code Scanner =====
+    let qrScanner = null;
+    const qrBtn = document.getElementById('btnQr');
+    const qrInput = document.getElementById('tbrInput');
+    const reader = document.getElementById('reader');
+
+    qrBtn.addEventListener('click', () => {
+      if (!qrScanner) qrScanner = new Html5Qrcode('reader');
+      reader.style.display = 'block';
+      qrScanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+          qrInput.value = decodedText;
+          qrScanner.stop().then(() => reader.style.display = 'none');
+        }
+      ).catch(e => {
+        alert('Erro ao abrir câmera: ' + e);
+        reader.style.display = 'none';
+      });
+    });
+
+    // ===== Botão Tirar Foto (abre câmera) =====
+    const btnTirarFoto = document.getElementById('btnTirarFoto');
+    const fotoInput = document.getElementById('fotoInput');
+    btnTirarFoto.addEventListener('click', () => {
+      fotoInput.click(); // Simula clique no input para abrir câmera/seletor
+    });
+
+    // ===== Preview Foto =====
+    const fotoPreview = document.getElementById('fotoPreview');
+    fotoInput.addEventListener('change', () => {
+      const file = fotoInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          fotoPreview.src = e.target.result;
+          fotoPreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // ===== Botões Salvar e Reset =====
+    document.getElementById('btnSalvar').addEventListener('click', () => {
+      const tbr = document.getElementById('tbrInput').value.trim();
+      const responsavel = document.getElementById('responsavelInput').value.trim();
+      const motivo = document.getElementById('motivoSelect').value;
+      const acao = document.getElementById('acaoSelect').value;
+      const obs = document.getElementById('obsInput').value.trim();
+
+      if (!tbr) { alert('Informe o TBR'); return; }
+      if (!responsavel) { alert('Informe o Responsável'); return; }
+
+      // Processar foto
+      let foto = null;
+      const file = fotoInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          foto = e.target.result; // base64
+          savePackage(tbr, responsavel, motivo, acao, obs, foto);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        savePackage(tbr, responsavel, motivo, acao, obs, foto);
+      }
+    });
+
+    function savePackage(tbr, responsavel, motivo, acao, obs, foto) {
+      const novo = { id: Date.now(), tbr, responsavel, motivo, acao, obs, foto, time: new Date().toISOString() };
+      packages.unshift(novo);
+      saveData();
+      // Reset form
+      document.getElementById('tbrInput').value = '';
+      document.getElementById('responsavelInput').value = '';
+      document.getElementById('motivoSelect').value = '';
+      document.getElementById('acaoSelect').value = 'Encaminhar para FC';
+      document.getElementById('obsInput').value = '';
+      fotoInput.value = '';
+      fotoPreview.style.display = 'none';
+      alert('Registro salvo!');
+    }
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      if (confirm('Apagar todos os registros?')) {
+        packages = [];
+        saveData();
+      }
+    });
+
+    // ===== Filtro e Exportar =====
+    document.getElementById('btnFiltrar').addEventListener('click', () => {
+      const inicio = document.getElementById('dataInicio').value;
+      const fim = document.getElementById('dataFim').value;
+      renderRelatorio(inicio, fim);
+    });
+
+    document.getElementById('btnExportFC').addEventListener('click', () => {
+      const inicio = document.getElementById('dataInicio').value;
+      const fim = document.getElementById('dataFim').value;
+      let filtered = packages.filter(p => p.acao === 'Encaminhar para FC');
+
+      if (inicio) filtered = filtered.filter(p => new Date(p
